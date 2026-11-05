@@ -41,6 +41,8 @@ class AppSpec:
     formula: str = ""  # calculator only: python expression over the inputs
     formula_label: str = ""
     idea: str = ""
+    source: str = "rules"  # rules | llm
+    source: str = "rules"
 
     def as_dict(self) -> dict[str, Any]:
         data = asdict(self)

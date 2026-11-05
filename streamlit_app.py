@@ -11,7 +11,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from engine import generate, runner
+from engine import generate, llm, runner
 from engine.spec import EXAMPLES, AppSpec, Field, parse_idea
 
 st.set_page_config(page_title="App Engine", page_icon="🧱", layout="wide")
@@ -22,6 +22,8 @@ if "spec" not in st.session_state:
     st.session_state.spec = None
 if "preview" not in st.session_state:
     st.session_state.preview = None
+if "source" not in st.session_state:
+    st.session_state.source = ""
 
 st.title("🧱 App Engine")
 st.caption("Describe the app you want. It gets parsed into a spec you can see and edit, then built into a running Streamlit app.")
@@ -47,12 +49,32 @@ with left:
             example, key=f"ex_{i}", use_container_width=True, on_click=use_example, args=(example,)
         )
 
+    status = llm.backend_status()
+    use_llm = st.checkbox(
+        f"Interpret with the model ({status['model']})" if status["available"] else "Model interpretation unavailable",
+        value=status["available"],
+        disabled=not status["available"],
+        help="Off: keyword rules only, instant and deterministic. On: the model reads the idea first and falls back to rules if it fails.",
+    )
+
     if st.button("Understand the idea", type="primary", disabled=not idea.strip()):
-        try:
-            st.session_state.spec = parse_idea(idea)
-            st.session_state.preview = None
-        except ValueError as exc:
-            st.error(str(exc))
+        spec = None
+        source = "rules"
+        if use_llm:
+            with st.spinner("Reading the idea…"):
+                spec = llm.interpret(idea)
+            if spec:
+                source = f"model · {status['model']}"
+        if spec is None:
+            try:
+                spec = parse_idea(idea)
+                source = "rules (fallback)" if use_llm else "rules"
+            except ValueError as exc:
+                st.error(str(exc))
+                spec = None
+        st.session_state.spec = spec
+        st.session_state.source = source if spec else ""
+        st.session_state.preview = None
 
 with right:
     st.markdown("**How this works**")
@@ -68,7 +90,8 @@ spec: AppSpec | None = st.session_state.spec
 
 if spec:
     st.divider()
-    st.subheader("What I understood")
+    badge = f"  ·  parsed by {st.session_state.source}" if st.session_state.source else ""
+    st.subheader("What I understood" + badge)
     top = st.columns([2, 1, 1])
     name = top[0].text_input("App name", value=spec.name)
     kind = top[1].selectbox("Kind", ["records", "calculator"], index=0 if spec.kind == "records" else 1)
