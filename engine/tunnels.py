@@ -4,7 +4,7 @@
 every app that needs to be opened gets its own tunnel and a public URL. Tunnels
 are started lazily, one per port, and reused while the process lives.
 
-Disable with APP_ENGINE_TUNNEL=0 (handy for tests and offline work).
+Off by default. Set APP_ENGINE_TUNNEL=1 only when you deliberately want a public link.
 """
 
 from __future__ import annotations
@@ -27,7 +27,8 @@ URL_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
 
 
 def enabled() -> bool:
-    if os.getenv("APP_ENGINE_TUNNEL", "").lower() in {"0", "off", "false"}:
+    """Opt-in only: nothing leaves the machine unless APP_ENGINE_TUNNEL=1."""
+    if os.getenv("APP_ENGINE_TUNNEL", "").lower() not in {"1", "on", "true", "yes"}:
         return False
     return binary() is not None
 

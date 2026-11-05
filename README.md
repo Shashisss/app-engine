@@ -71,8 +71,8 @@ list with name / category / amount / date / notes rather than failing.
 
 ## Public links (container → browser)
 
-`localhost` inside a container is not reachable from your browser, so every app gets its own
-Cloudflare quick tunnel:
+Off by default — nothing is exposed to the internet. When you do want a public link, set
+`APP_ENGINE_TUNNEL=1` and each app opens its own Cloudflare quick tunnel:
 
 - on `Build & run`, the app is started and a tunnel is opened for its port — the public URL is
   stored in `apps/registry.json` and shown in the list;
@@ -80,7 +80,8 @@ Cloudflare quick tunnel:
 - the engine page itself can open a tunnel for port 8600 from the "make it shareable" panel.
 
 ```
-APP_ENGINE_TUNNEL=0     disable tunnels (tests do this)
+APP_ENGINE_TUNNEL=1     enable public tunnels (off unless set)
+APP_ENGINE_PASSWORD=…   require a password before the engine renders
 bin/cloudflared         the binary the engine shells out to (not committed)
 ```
 
