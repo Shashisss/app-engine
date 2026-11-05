@@ -19,6 +19,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from . import tunnels
+
 ROOT = Path(__file__).resolve().parents[1]
 APPS_DIR = ROOT / "apps"
 REGISTRY = ROOT / "apps" / "registry.json"
@@ -148,6 +150,7 @@ def start(slug: str, wait: bool = True) -> dict[str, Any]:
 
     if wait and wait_ready(port):
         entry["status"] = "running"
+        entry["public_url"] = tunnels.start(port)
         rows = [r for r in rows if r["slug"] != slug] + [entry]
         _save(rows)
     elif wait:
@@ -171,6 +174,8 @@ def stop(slug: str) -> None:
                 os.kill(pid, signal.SIGTERM)
             except OSError:
                 pass
+    if entry.get("port"):
+        tunnels.stop(int(entry["port"]))
     entry["status"] = "stopped"
     entry["pid"] = None
     _save([e if e["slug"] != slug else entry for e in rows])
@@ -198,6 +203,14 @@ def status(slug: str) -> str:
     return entry.get("status", "stopped")
 
 
+def public_url(slug: str) -> str:
+    entry = _entry(_load(), slug)
+    if not entry:
+        return ""
+    tunnelled = entry.get("public_url") or (tunnels.url_for(entry["port"]) if entry.get("port") else None)
+    return tunnelled or ""
+
+
 def url(slug: str) -> str:
     entry = _entry(_load(), slug)
     return f"http://localhost:{entry['port']}" if entry and entry.get("port") else ""
@@ -208,6 +221,7 @@ def list_apps() -> list[dict[str, Any]]:
     for row in rows:
         row["status"] = status(row["slug"])
         row["url"] = url(row["slug"])
+        row["public_url"] = public_url(row["slug"])
     return sorted(rows, key=lambda r: r.get("started_at") or "", reverse=True)
 
 

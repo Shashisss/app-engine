@@ -69,6 +69,24 @@ Deliberate choices:
 The parser recognises ~12 domains plus 5 calculators; anything unrecognised becomes a generic
 list with name / category / amount / date / notes rather than failing.
 
+## Public links (container → browser)
+
+`localhost` inside a container is not reachable from your browser, so every app gets its own
+Cloudflare quick tunnel:
+
+- on `Build & run`, the app is started and a tunnel is opened for its port — the public URL is
+  stored in `apps/registry.json` and shown in the list;
+- the preview pane uses the public URL, not `localhost`;
+- the engine page itself can open a tunnel for port 8600 from the "make it shareable" panel.
+
+```
+APP_ENGINE_TUNNEL=0     disable tunnels (tests do this)
+bin/cloudflared         the binary the engine shells out to (not committed)
+```
+
+Quick tunnels are ephemeral: their hostname changes if the tunnel process (or the container)
+restarts. For a stable address, use a named Cloudflare tunnel or a real host.
+
 ## Layout
 
 ```

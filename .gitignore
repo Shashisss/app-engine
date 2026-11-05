@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .env
+bin/
 
 # generated at runtime — apps are built artefacts, not source
 apps/*

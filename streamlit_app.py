@@ -11,7 +11,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from engine import generate, llm, runner
+from engine import generate, llm, runner, tunnels
 from engine.spec import EXAMPLES, AppSpec, Field, parse_idea
 
 st.set_page_config(page_title="App Engine", page_icon="🧱", layout="wide")
@@ -26,6 +26,21 @@ if "source" not in st.session_state:
     st.session_state.source = ""
 
 st.title("🧱 App Engine")
+
+_engine_public = tunnels.url_for(8600)
+if _engine_public:
+    st.caption(f"Public link for this engine: {_engine_public}")
+elif tunnels.enabled():
+    with st.expander("You are viewing this on localhost — make it shareable"):
+        st.caption("Creates a Cloudflare quick tunnel for this page. Apps get their own links automatically.")
+        if st.button("Create public link", key="mkengine"):
+            with st.spinner("Opening a tunnel…"):
+                link = tunnels.start(8600)
+            if link:
+                st.success(f"Public link: {link}")
+            else:
+                st.error("Could not create a tunnel — is cloudflared available?")
+
 st.caption("Describe the app you want. It gets parsed into a spec you can see and edit, then built into a running Streamlit app.")
 
 left, right = st.columns([3, 2], gap="large")
@@ -181,6 +196,7 @@ else:
                 "app": a["slug"],
                 "status": a["status"],
                 "port": a.get("port"),
+                "public": a.get("public_url", ""),
                 "started": a.get("started_at", ""),
             }
             for a in apps
@@ -211,7 +227,10 @@ else:
 
     if entry:
         url = runner.url(chosen)
-        if entry["status"] == "running" and url:
+        public = runner.public_url(chosen)
+        if entry["status"] == "running" and public:
+            st.markdown(f"**Public link** [{public}]({public})   ·   local: `{url}`")
+        elif entry["status"] == "running" and url:
             st.markdown(f"**Running at** [{url}]({url})")
         else:
             st.warning(f"Status: {entry['status']}. Logs below.")
@@ -226,7 +245,8 @@ if preview_slug:
         st.divider()
         st.subheader(f"Preview — {preview_slug}")
         st.caption("This is the generated app, running as its own process.")
-        st.components.v1.iframe(runner.url(preview_slug), height=720, scrolling=True)
+        preview_url = runner.public_url(preview_slug) or runner.url(preview_slug)
+        st.components.v1.iframe(preview_url, height=720, scrolling=True)
     elif entry:
         st.info(f"{preview_slug} is not running. Start it from the list above.")
 
