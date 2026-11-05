@@ -34,6 +34,22 @@ process
 running app  →  preview iframe + direct URL
 ```
 
+### The model (optional)
+
+The checkbox **"Interpret with the model"** sends the idea to the local `opencode` CLI before the
+keyword rules run — same provider this machine already uses, no API key to manage.
+
+```
+opencode run --standalone --format json --model opencode-go/deepseek-v4.1-flash "<prompt>"
+```
+
+- Default **on** when the CLI is present; uncheck for pure keyword rules (instant, offline).
+- Anything the model returns is sanitised: whitelisted field types, valid identifiers, max 10
+  fields, calculators restricted to the five known formulas. If it returns junk, times out or the
+  CLI is missing, the rules parser takes over and the badge says "rules (fallback)".
+- `APP_ENGINE_MODEL=opencode-go/<model>` to switch models, `APP_ENGINE_LLM=off` to disable.
+- Results are memoised per idea, so reruns cost nothing.
+
 Deliberate choices:
 
 - **Deterministic, not model-driven.** The same idea always builds the same app. No API key,
