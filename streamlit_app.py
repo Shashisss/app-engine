@@ -11,10 +11,24 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from engine import generate, llm, runner, tunnels
+from engine import auth, generate, limits, llm, runner, tunnels
 from engine.spec import EXAMPLES, AppSpec, Field, parse_idea
 
 st.set_page_config(page_title="App Engine", page_icon="🧱", layout="wide")
+
+if auth.configured() and not st.session_state.get("authed"):
+    st.title("🧱 App Engine")
+    st.caption("Password required — this engine sits on a public link and can spend model quota.")
+    with st.form("login"):
+        candidate = st.text_input("Password", type="password")
+        submitted = st.form_submit_button("Enter", type="primary")
+    if submitted:
+        if auth.check(candidate):
+            st.session_state.authed = True
+            st.rerun()
+        else:
+            st.error("Wrong password.")
+    st.stop()
 
 TYPES = ["text", "long_text", "number", "date", "select", "bool"]
 
@@ -99,6 +113,8 @@ with right:
         "3. Build → a standalone Streamlit app on its own port\n"
         "4. It keeps its own SQLite data and can be downloaded"
     )
+    spent = limits.usage()
+    st.caption(f"Model calls: {spent['last_hour']}/{spent['hourly_limit']} this hour, {spent['last_day']}/{spent['daily_limit']} today.")
     st.caption("Deterministic by design: the same idea builds the same app.")
 
 spec: AppSpec | None = st.session_state.spec
@@ -251,6 +267,10 @@ if preview_slug:
         st.info(f"{preview_slug} is not running. Start it from the list above.")
 
 st.divider()
+if auth.configured() and st.button("Sign out"):
+    st.session_state.authed = False
+    st.rerun()
+
 st.caption(
     "Generated apps are plain Streamlit files on disk — `apps/<slug>/app.py` — with their own SQLite data. "
     "They keep working if this engine is stopped."

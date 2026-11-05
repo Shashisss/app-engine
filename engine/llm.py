@@ -19,6 +19,7 @@ import subprocess
 from functools import lru_cache
 from typing import Any
 
+from . import limits
 from .spec import CALC_KEYWORDS, CALCULATORS, AppSpec, Field, slugify
 
 DEFAULT_MODEL = os.getenv("APP_ENGINE_MODEL", "opencode-go/deepseek-v4.1-flash")
@@ -215,9 +216,10 @@ def clear_cache() -> None:
 
 @lru_cache(maxsize=64)
 def _interpret_cached(idea: str) -> str | None:
-    """Returns the spec as JSON text, or None. Cached so a rerun is free."""
+    """Returns the spec as JSON text, or None. Cached so a rerun costs nothing."""
     try:
         reply = _run(PROMPT.format(idea=idea.strip()[:600]))
+        limits.record()  # the call has been paid for, even if the reply is junk
         payload = extract_json(reply)
         spec = spec_from_payload(payload, idea)
         return json.dumps(spec.as_dict())
@@ -226,13 +228,16 @@ def _interpret_cached(idea: str) -> str | None:
 
 
 def clear_cache() -> None:
-    """Drop memoised results — used by the UI when the model is switched on/off."""
+    """Drop memoised interpretations (tests, and switching the model off/on)."""
     _interpret_cached.cache_clear()
 
 
 def interpret(idea: str, timeout: float | None = None) -> AppSpec | None:
-    """Idea → spec via the model, or None. Never raises."""
+    """Idea → spec via the model, or None. Never raises, never overspends."""
     if not idea or not idea.strip() or not available():
+        return None
+    ok, _reason = limits.allowed()
+    if not ok:
         return None
     try:
         payload = _interpret_cached(idea)
